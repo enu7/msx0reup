@@ -1,0 +1,10 @@
+{
+  "github.com": {
+    "start_marker": "<div data-view-component=\"true\" class=\"Overlay-body Overlay-body--paddingNone\"> ",
+    "end_marker": " <footer class=\"footer pt-8 pb-6 f6 color-fg-muted p-responsive\" role=\"contentinfo\" >"
+  },
+  "enu7.sakura.ne.jp": {
+    "start_marker": "<p id=\"KOTEI-END\"></p>",
+    "end_marker": "<!--==================== FOOTER AREA ====================-->"
+  }
+}
