@@ -1,0 +1,309 @@
+#:import Label msx0reup.Label
+#:import Button msx0reup.Button
+#:import IconButton msx0reup.IconButton
+
+<MSX0RemoteUploader>:
+    canvas.before:
+        Color:
+#            rgba:0.35,0.33,0.88,1
+#            rgba:0.5,0.46,0.96,1
+            rgba: 0.4,0.86,0.94,1 
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+#    orientation: 'vertical'
+    padding: 5,5,5,5
+
+    BoxLayout:
+        orientation: 'horizontal'
+        size:root.size
+#        height: 50
+        canvas.before:
+            Color:
+                #rgba:0.5,0.46,0.96,1
+                rgba: 0.2, 0.25, 0.6, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        padding: 5,5,5,5
+        # Header Label
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.1
+            width:200
+            Label:
+                text: 'MSX0\nRemote\nUPLOADER'
+                bold: True
+                size: 128,128
+#                size_hint_x: 0.1
+    #            width: 200
+                color: 1, 1, 1, 1  # White text color)
+            Button:
+                text: 'Settings'
+                size_hint_y:0.1
+                on_press: root.open_settings()
+        BoxLayout:
+            size_hint_x:0.9
+            orientation: 'horizontal'
+
+            # Temp File Panel
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: 0.4
+                padding: 10
+                spacing: 10
+                canvas.before:
+                    Color:
+                        rgba: 0.1, 0.1, 0.4, 1  # Dark blue color for Temp File Panel
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 40
+                    IconButton:
+                        source:'./icon/go_back_btn.png'
+                        size: (32,32)
+                        size_hint_y: None
+                        on_press: root.go_back()
+                    TextInput:
+                        id: url_input
+                        hint_text: 'http://github.com/'
+                        size_hint_y: None
+                        height: 40
+                        multiline: False
+                    IconButton:
+                        source:'./icon/load_url_btn.png'
+                        size: (32,32)
+                        on_press: root.load_url()
+                    IconButton:
+                        source:'./icon/download_file_btn.png'
+                        size: (32,32)
+                        size_hint_y: None
+                        size_hint_x: None
+                        on_press: app.root.download_file()
+
+                    IconButton:
+                        source:'./icon/local_copy_btn.png'
+                        text: 'Local\nCopy'
+                        size: (32,32)
+                        size_hint_y: None
+                        size_hint_x: None
+                        on_press: app.root.local_copy()
+                BoxLayout:
+                    id: preview_container
+                    orientation: 'vertical'
+                    size_hint_x: 1.0
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 30
+                    IconButton:
+                        source:'./icon/toggle_all_checkboxes_btn.png'
+                        text: 'ALL\nCheck'
+                        font_size: 11
+#                        size_hint_x: 0.15
+                        on_press: root.toggle_all_checkboxes()
+                    Label:
+                        text: 'List of FILES on Temporally'
+                        size_hint_x: 0.8
+                        color: 1, 1, 1, 1  # White text color
+                    IconButton:
+                        source:'./icon/refresh_file_list_btn.png'
+                        id: temp_refresh_button
+                        text: 'Refresh'
+                        size_hint_x: 0.2
+                        on_press: root.refresh_temp_file_list()
+                    Spinner:
+                        id: sort_spinner
+                        font_size: 10
+                        text: 'Date↑'
+                        values: [option[2] for option in root.sort_options]
+                        size_hint_x: 0.2
+                        on_text: root.on_sort_option_select([option for option in root.sort_options if option[2] == self.text][0])
+                    IconButton:
+                        source:'./icon/delete_selected_files_btn.png'
+                        on_press: root.delete_selected_files()
+
+                ScrollView:
+                    GridLayout:
+                        id: temp_file_list
+                        cols: 1
+                        size_hint_y: None
+                        height: self.minimum_height
+
+                        #BoxLayout:
+                        #    size_hint_y: None
+                        #    height: 30
+                        #    CheckBox:
+                        #        size_hint_x: None
+                        #        width: 30
+                        #    Label:
+                        #        text: 'aaaa.txt'
+                        #    Label:
+                        #        text: '100byte'
+                        #    Label:
+                        #        text: 'LF'
+                        #    Button:
+                        #        text: 'CONV\nCR+LF'
+                        #        font_size:10
+                        #        size_hint_x: None
+                        #        width: 32
+                        #    Button:
+                        #        text: 'DEL\nETE'
+                        #        font_size:10
+                        #        size_hint_x: None
+                        #        width: 32
+
+            # Upload Button Panel
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: None
+                width: 32
+#                spacing: 10
+                canvas.before:
+                    Color:
+                        rgba: 0.2, 0.25, 0.6, 1 # Dark blue color for Upload Button Panel
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+                Label:
+                    id:label1
+                    text:""
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: 100
+                    IconButton:
+                        id: upload_button
+                        source: './icon/upload_file_btn.png'
+                        text: 'UPL\nOAD'
+                        size: (32,32)
+                        size_hint_y: None
+                        height: 50
+                        on_press: app.root.upload_file()
+
+                Label:
+                    id:label1
+                    text:""
+                BoxLayout:
+                    id: upload_status
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: 60  # プログレスバーとラベルの合計の高さ
+
+            # Basic File Panel
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: 0.4
+                padding: 10
+                spacing: 10
+                canvas.before:
+                    Color:
+                        rgba: 0.1, 0.1, 0.4, 1  # Dark blue color for Basic File Panel
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 40
+                    TextInput:
+                        id: server_ip_input
+                        #text: '192.168.0.11'
+                        hint_text: 'MSX0 IP Address'
+                        size_hint_y: None
+                        height: 40
+                        multiline: False
+
+                    IconButton:
+                        source:'./icon/add_msx0_list_btn.png'
+                        text: 'ADD'
+                        font_size:12
+                        size_hint_y: None
+                        size_hint_x: None
+                        width:32
+                        height: 40
+                        on_press: app.root.add_msx0_list()
+
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 30
+                    Label:
+                        text: 'List of FILES on MSX0'
+                        size_hint_x: 0.8
+                        color: 1, 1, 1, 1  # White text color
+                    IconButton:
+                        source:'./icon/refresh_file_list_btn.png'
+                        id: msx0_refresh_button   # Add this id
+                        text: 'Refresh'
+                        size_hint_x: 0.2
+                        on_press: root.refresh_msx0_file_list()
+
+                ScrollView:
+                    BoxLayout:
+                        orientation: 'vertical'
+#                    GridLayout:
+                        id:msx0_list_layout
+#                        cols: 1
+                        size_hint_y: None
+                        height: self.minimum_height
+                        # Add your file list items here
+
+
+
+<DeleteConfirmPopup>:
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: 'Are you sure you want to delete this file?'
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: 'OK'
+                on_press: root.dispatch('on_answer', 'yes')
+            Button:
+                text: 'Cancel'
+                on_press: root.dispatch('on_answer', 'no')
+<AsyncTextBrowser>:
+    viewclass: 'Label'
+    RecycleBoxLayout:
+        default_size: None, dp(56)
+        default_size_hint: 1, None
+        size_hint_y: None
+        height: self.minimum_height
+        orientation: 'vertical'
+<LinkedLabel>:
+    color: 0, 0, 0, 1  # 黒色テキスト
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1  # 白色背景
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    text_size: self.width, None
+    size_hint_y: None
+    height: self.texture_size[1]
+    markup: True
+<LoadingSpinner>:
+    Image:
+        source: './icon/spinner.gif'
+        size_hint: None, None
+        size: 50, 50
+        pos_hint: {'center_x': .5, 'center_y': .5}
+        anim_delay: 0.1
+
+<IconButton>:
+    canvas.before:
+        Color:
+            rgba: (1, 1, 1, 1) if self.inverted else (0, 0, 0, 0)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    color: (0, 0, 0, 1) if self.inverted else (1, 1, 1, 1)
