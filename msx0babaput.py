@@ -181,7 +181,7 @@ def msx0babaput(host, program, message_file_path, cancel_flag, timeout=8):
                 tn.write(base64_message[i:i+76].encode('ascii') + b"\r\n")  # 改行コードをCR+LFに変更
                 read_until_timeout(b'?', timeout)#tn.read_until(b'?')
                 # インジケータ表示
-                sys.stdout.write("\rTransferring: {}/{} chunks".format(i//76, total_chunks))
+                sys.stdout.write("\rTransferring: {}/{} chunks".format((i//76)+1, total_chunks+1))
                 sys.stdout.flush()
             print()
             end_time = time.time()

@@ -19,6 +19,7 @@ import re
 import certifi
 import asyncio
 import chardet
+from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -357,6 +358,22 @@ class AsyncTextBrowser(RecycleView):
                 detected = chardet.detect(raw_content)
                 encoding = detected['encoding']
                 logger.debug(f"async_load_url:encoding:{encoding}")
+
+                # HTMLのメタタグからエンコーディングを取得
+                soup = BeautifulSoup(raw_content, 'html.parser')
+                meta_charset = soup.find('meta', charset=True)
+                meta_content_type = soup.find('meta', {'http-equiv': 'Content-Type'})
+                
+                if meta_charset:
+                    encoding = meta_charset['charset']
+                elif meta_content_type:
+                    content = meta_content_type['content']
+                    if 'charset=' in content:
+                        encoding = content.split('charset=')[-1]
+                
+                logger.debug(f"Final encoding: {encoding}")
+
+
                 try:
                     html = raw_content.decode(encoding)
                 except UnicodeDecodeError:
@@ -376,13 +393,12 @@ class AsyncTextBrowser(RecycleView):
 
                 writer.close()
                 await writer.wait_closed()
-
+                logger.debug(f"async_load_url:statuscode:{status_code}")
                 if status_code in (301, 302, 303, 307, 308):
-
-
+                    logger.debug(f"async_load_url:Location:{headers['Location']}")
                     url = urljoin(url, headers['Location'])
                     redirect_count += 1
-                    logger.info(f"Redirecting to: {url}")
+                    logger.debug(f"async_load_url:Redirecting to: {url}")
 
                 elif status_code == 200:
                     if  'text/html' in headers['Content-Type']:
@@ -532,6 +548,9 @@ class MSX0RemoteUploader(BoxLayout):
         self.loop = asyncio.get_event_loop()
         self.text_browser = AsyncTextBrowser()
         self.executor = ThreadPoolExecutor(max_workers=5)
+
+        self.upload_start_time = 0 
+        self.successful_uploads = 0
 
         Clock.schedule_once(self.post_init, 0)
         self.load_settings()
@@ -1122,7 +1141,7 @@ class MSX0RemoteUploader(BoxLayout):
 
     def update_ui_for_msx0(self, msx0_host, parsed_files):
         logger.debug(f"Updating UI for MSX0: {msx0_host}")
-        self.ids.msx0_list_layout.clear_widgets()  # Clear existing widgets
+        #self.ids.msx0_list_layout.clear_widgets()  # Clear existing widgets
         
         disk_info, drive_info, current_dir, files = parsed_files
         
@@ -1537,6 +1556,8 @@ class MSX0RemoteUploader(BoxLayout):
         self.total_uploads = len(selected_files) * len(selected_servers)
         self.uploads_completed = 0
 
+        self.upload_start_time = time.time() 
+
         for server_ip in selected_servers:
             self.upload_threads[server_ip] = threading.Thread(
                 target=self.upload_worker,
@@ -1576,6 +1597,8 @@ class MSX0RemoteUploader(BoxLayout):
                 result, execution_time = self.uploader.upload_file(server_ip, file_path, self.upload_cancel_flag)
                 logger.debug(f"Upload to {server_ip}: {result}")
                 logger.debug(f"Execution time: {execution_time} seconds")
+                if "Done" in result:
+                    self.successful_uploads += 1
             except Exception as e:
                 logger.error(f"Error uploading {file_path} to {server_ip}: {e}")
             finally:
@@ -1592,7 +1615,10 @@ class MSX0RemoteUploader(BoxLayout):
     def finish_upload(self, dt):
         self.display_servers()
         self.upload_spinner.dismiss()
-        self.show_info_popup("Upload completed")
+        elapsed_time = time.time() - self.upload_start_time
+        self.show_info_popup(f"Upload completed\nSuccessful uploads: {self.successful_uploads}/{self.total_uploads}\nTotal time: {elapsed_time}sec\n")
+        self.update_upload_progress(0) 
+        self.successful_uploads=0
 
     def cancel_upload(self, instance):
         self.upload_cancel_flag.set()
