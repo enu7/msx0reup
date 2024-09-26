@@ -25,6 +25,7 @@ pip install html2text
 pip install lhafile
 pip install chardet
 pip install python-magic
+pip install beautifulsoup4
 ```
 Githubのメニュー<CODE>からDownload ZiPで一式ダウンロードし解凍してください。
 
@@ -34,9 +35,10 @@ Githubのメニュー<CODE>からDownload ZiPで一式ダウンロードし解�
 python ./main.py
 ```
 
-#簡易的なな使い方
+# 簡易的なな使い方
 
-
+# 転送の作り
+![image](https://github.com/enu7/msx0reup/blob/main/images/msx0reup_design.png)
 
 # アップロード高速化
 https://qiita.com/enu7/items/23cab122141fb8d07c6d#%E6%9C%80%E5%BE%8C%E3%81%AB
