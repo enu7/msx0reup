@@ -33,7 +33,7 @@ Githubのメニュー<CODE>からDownload ZiPで一式ダウンロードし解�
 解凍後のフォルダで以下を実行するとGUIが起動します。
 ```python ./main.py```
 
-# 簡易的なな使い方
+# 簡易的な使い方
 ## テキストブラウザエリア
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/go_back_btn.png) テキストブラウザの戻るボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/load_url_btn.png) テキストブラウザのURLに進むボタン
