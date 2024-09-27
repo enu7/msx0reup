@@ -74,11 +74,6 @@ def setup_logging():
 
 logger = setup_logging()
 
-
-# class CustomSpinner(Spinner):
-#     font_size = NumericProperty(11)  # デフォルトのフォントサイズ
-
-
 class UIComponents:
     class LoadingSpinner(ModalView):
         def __init__(self, **kwargs):
@@ -336,11 +331,12 @@ class AsyncTextBrowser(RecycleView):
             while redirect_count < max_redirects:
                 parsed_url = urlparse(url)
                 hostname = parsed_url.hostname
-                port = parsed_url.port or 443
+                port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
 
-                ssl_context = ssl.create_default_context(cafile=certifi.where())
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
+                if parsed_url.scheme == 'https':
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
 
                 addrinfo = await asyncio.get_event_loop().getaddrinfo(
                     hostname, port, family=socket.AF_INET, proto=socket.IPPROTO_TCP,
@@ -348,7 +344,12 @@ class AsyncTextBrowser(RecycleView):
                 ip = addrinfo[0][4][0]
                 logger.debug(f"Resolved IP: {ip}")
 
-                reader, writer = await asyncio.open_connection(ip, port, ssl=ssl_context)
+                # ssl引数を条件付きで設定
+                connection_args = {'host': ip, 'port': port}
+                if parsed_url.scheme == 'https':
+                    connection_args['ssl'] = ssl_context
+
+                reader, writer = await asyncio.open_connection(**connection_args)
 
                 request = f"GET {parsed_url.path or '/'} HTTP/1.1\r\nHost: {hostname}\r\nConnection: close\r\n\r\n"
                 writer.write(request.encode())
@@ -363,16 +364,18 @@ class AsyncTextBrowser(RecycleView):
                 soup = BeautifulSoup(raw_content, 'html.parser')
                 meta_charset = soup.find('meta', charset=True)
                 meta_content_type = soup.find('meta', {'http-equiv': 'Content-Type'})
-                
+
                 if meta_charset:
                     encoding = meta_charset['charset']
                 elif meta_content_type:
                     content = meta_content_type['content']
                     if 'charset=' in content:
                         encoding = content.split('charset=')[-1]
-                
-                logger.debug(f"Final encoding: {encoding}")
+                # x-sjisをShift_JISに変換
+                if encoding and encoding.lower() == 'x-sjis':
+                    encoding = 'shift_jis'
 
+                logger.debug(f"Final encoding: {encoding}")
 
                 try:
                     html = raw_content.decode(encoding)
@@ -443,7 +446,7 @@ class AsyncTextBrowser(RecycleView):
 
     def reset_scroll(self):
         self.scroll_y = 1
-    
+
 class DiskSelectionDialog(Popup):
     def __init__(self, current_disk, available_disks, on_select, **kwargs):
         super(DiskSelectionDialog, self).__init__(**kwargs)
