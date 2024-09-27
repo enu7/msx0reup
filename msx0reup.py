@@ -515,6 +515,14 @@ class RadioButton(BoxLayout):
     @property
     def active(self):
         return self.checkbox.active
+    
+class MSX0InfoLayout(GridLayout):
+    def __init__(self, msx0_host, **kwargs):
+        super().__init__(**kwargs)
+        self.msx0_host = msx0_host
+        self.cols = 1
+        self.size_hint_y = None
+        self.bind(minimum_height=self.setter('height'))
 
 class MSX0RemoteUploader(BoxLayout):
     sort_options = [
@@ -535,7 +543,7 @@ class MSX0RemoteUploader(BoxLayout):
         self.settings_popup = None
         self.temp_folder_path = './msx0reup_temp'
         self.uploader = FileUploader(config)
-        self.msx0_list = []
+        # self.msx0_list = []
         self.active_threads = 0
         self.progress_bar = None
         self.progress_label = None
@@ -551,6 +559,8 @@ class MSX0RemoteUploader(BoxLayout):
 
         self.upload_start_time = 0 
         self.successful_uploads = 0
+
+        self.msx0_layouts = {} 
 
         Clock.schedule_once(self.post_init, 0)
         self.load_settings()
@@ -994,28 +1004,30 @@ class MSX0RemoteUploader(BoxLayout):
         logger.debug("Adding MSX0 to list")
         self.show_spinner()
         new_msx0 = self.ids.server_ip_input.text
-        if new_msx0 and new_msx0 not in self.msx0_list:
-            threading.Thread(target=self.add_msx0_to_list, args=(new_msx0,)).start()
+        if new_msx0 and new_msx0 not in self.msx0_layouts:
+            
+            msx0_info_layout = MSX0InfoLayout(new_msx0)
+            self.msx0_layouts[new_msx0] = msx0_info_layout
+            threading.Thread(target=self.add_msx0_to_list, args=(msx0_info_layout,)).start()
         else:
             self.hide_spinner()
             self.show_error_popup("Invalid IP address or already in the list")
-        # self.add_to_history(new_msx0, 'server')
+        
 
-    def add_msx0_to_list(self, new_msx0):
-        logger.debug(f"Adding MSX0 to list: {new_msx0}")
-        self.msx0_list.append(new_msx0)
-        self.display_servers()
-        # self.add_to_history(new_msx0, 'server')
-        self.hide_spinner()
+    def add_msx0_to_list(self, msx0_info_layout):
+        Clock.schedule_once(lambda dt: self.ids.msx0_list_layout.add_widget(msx0_info_layout))
+        self.update_file_list_msx0(msx0_info_layout.msx0_host)
+        
+        Clock.schedule_once(lambda dt: self.hide_spinner())
 
-    def display_servers(self):
+    def display_msx0_list(self):
         logger.debug("Displaying servers")
 
         #self.ids.msx0_list_layout.clear_widgets()
-        Clock.schedule_once(lambda dt: self.ids.msx0_list_layout.clear_widgets())
+        #Clock.schedule_once(lambda dt: self.ids.msx0_list_layout.clear_widgets())
         futures = []
-        for ip in self.msx0_list[:]:
-            future = self.executor.submit(self.update_file_list_onmsx0, ip)
+        for msx0_host in list(self.msx0_layouts.keys()):
+            future = self.executor.submit(self.update_file_list_msx0, msx0_host)
             futures.append(future)
 
         for future in as_completed(futures):
@@ -1034,10 +1046,10 @@ class MSX0RemoteUploader(BoxLayout):
         self.msx0_refresh_button.disabled = False
         self.hide_spinner()
 
-    def update_file_list_onmsx0(self, msx0_host):
+    def update_file_list_msx0(self, msx0_host):
         try:
             logger.debug(f"Updating file list for MSX0: {msx0_host}")
-            parsed_files = self.get_file_list(host=msx0_host)
+            parsed_files = self.get_file_list_msx0(host=msx0_host)
             if parsed_files[0] is not None:  # チェックを追加
                 Clock.schedule_once(lambda dt: self.update_ui_for_msx0(msx0_host, parsed_files))
         except Exception as e:
@@ -1046,11 +1058,11 @@ class MSX0RemoteUploader(BoxLayout):
             logger.error(traceback.format_exc())
             Clock.schedule_once(lambda dt: self.show_error_popup(error_message))
 
-        if self.msx0_list and msx0_host == self.msx0_list[-1]:
-            self.msx0_refresh_button.disabled = False
+        # if self.msx0_list and msx0_host == self.msx0_list[-1]:
+        #     self.msx0_refresh_button.disabled = False
 
 
-    def get_file_list(self, host, existing_connection=None):
+    def get_file_list_msx0(self, host, existing_connection=None):
         logger.debug(f"Getting file list from: {host}")
         tn = None
         try:
@@ -1062,12 +1074,12 @@ class MSX0RemoteUploader(BoxLayout):
 
             # ドライブ情報を取得
             tn.write(b'_IOTGET("msx/u0/drive/a",a$):PRINT a$\r\n')
-            result = Utils.read_until_timeout(tn, b"Ok", 5).decode("utf-8")
+            result = Utils.read_until_timeout(tn, b"Ok", timeout=10).decode("utf-8")
             logger.debug(result)
             disk_info = result.split("\r\n")[-2].strip()
-            logger.debug(f"get_file_list:{disk_info}")
+            logger.debug(f"get_file_list_msx0:{disk_info}")
             tn.write(b'FILES ,L\r\n')
-            result = Utils.read_until_timeout(tn, b"Ok", 10).decode("utf-8")
+            result = Utils.read_until_timeout(tn, b"Ok", timeout=10).decode("utf-8")
             lines = result.split("\r\n")[1:-1]
             print(lines)
             if "File not found" in lines[1].strip():
@@ -1082,19 +1094,15 @@ class MSX0RemoteUploader(BoxLayout):
         except TimeoutError as e:
             error_message = f"Connection to {host} timed out"
             logger.error(error_message)
+            logger.error(traceback.format_exc())
             Clock.schedule_once(lambda dt: self.show_error_popup(error_message))
-            # if not existing_connection:
-            #     tn.close()
             return None, None, None, []
         except Exception as e:
             error_message = f"Error connecting to {host}: {str(e)}"
             logger.error(error_message)
-            if host in self.msx0_list:
-                self.msx0_list.remove(host)
+            if host in  self.msx0_layouts:
+                self.remove_msx0_server(host)
             Clock.schedule_once(lambda dt: self.show_error_popup(error_message))
-            # if not existing_connection:
-            #     tn.close()
-            # raise Exception(error_message)
             return None, None, None, []
         finally:
             if tn and not existing_connection:
@@ -1145,6 +1153,16 @@ class MSX0RemoteUploader(BoxLayout):
         
         disk_info, drive_info, current_dir, files = parsed_files
         
+        if msx0_host in self.msx0_layouts:
+            # 既存のレイアウトを更新
+            msx0_info_layout = self.msx0_layouts[msx0_host]
+            msx0_info_layout.clear_widgets()
+        else:
+            # 新しいレイアウトを作成
+            msx0_info_layout = MSX0InfoLayout(msx0_host)
+            self.msx0_layouts[msx0_host] = msx0_info_layout
+            self.ids.msx0_list_layout.add_widget(msx0_info_layout)
+
         # Add server information line
         info_line = BoxLayout(size_hint_y=None, height=24)
         checkbox = CheckBox(size_hint_x=None, width=30)
@@ -1157,27 +1175,27 @@ class MSX0RemoteUploader(BoxLayout):
         info_line.add_widget(info_label)
 
         cmd_btn = IconButton(source='./icon/cmd_btn.png', size_hint_x=None, width=32)
-#        cmd_btn = Button(text='CMD', font_size=10, size_hint_x=None, width=32)
         cmd_btn.bind(on_press=lambda instance: self.show_command_dialog(msx0_host))
         info_line.add_widget(cmd_btn)
         disk_change_btn = IconButton(source='./icon/disk_change_btn.png', size_hint_x=None, width=32)
-#        disk_change_btn = Button(text='DSK', size_hint_x=None, width=50)
         disk_change_btn.bind(on_press=lambda instance: self.show_disk_change_dialog(msx0_host))
         info_line.add_widget(disk_change_btn)
 
         reset_btn = IconButton(source='./icon/reset_btn.png', size_hint_x=None, width=32)
-#        reset_btn = Button(text='RESET', font_size=10, size_hint_x=None, width=32)
         reset_btn.bind(on_press=lambda instance: self.confirm_reset_msx0(msx0_host))
         info_line.add_widget(reset_btn)
 
         remove_btn = IconButton(source='./icon/remove_btn.png', size_hint_x=None, width=32)
-        #Button(text='REM\nOVE', font_size=10, size_hint_x=None, width=32)
         remove_btn.bind(on_press=lambda instance: self.remove_msx0_server(msx0_host))
         info_line.add_widget(remove_btn)
-        self.ids.msx0_list_layout.add_widget(info_line)
+
+#        self.ids.msx0_list_layout.add_widget(info_line)
+        msx0_info_layout.add_widget(info_line)
+
         for file_info in files:
             file_line = self.create_file_line_for_msx0(file_info, msx0_host)
-            self.ids.msx0_list_layout.add_widget(file_line)
+            msx0_info_layout.add_widget(file_line)
+
 
     def create_file_line_for_msx0(self, file_info, msx0_host):
         file_line = BoxLayout(size_hint_y=None, height=24)
@@ -1294,7 +1312,7 @@ class MSX0RemoteUploader(BoxLayout):
                 
                 if "Ok" in result:
                     # ディレクトリ変更が成功した場合、ファイルリストを再取得
-                    parsed_files = self.get_file_list(msx0_host,existing_connection=tn)
+                    parsed_files = self.get_file_list_msx0(msx0_host,existing_connection=tn)
                     Clock.schedule_once(lambda dt: self.update_ui_for_msx0(msx0_host, parsed_files))
                 else:
                     error_message = f"Failed to change directory to {dir_name}"
@@ -1420,13 +1438,16 @@ class MSX0RemoteUploader(BoxLayout):
             Clock.schedule_once(lambda dt: self._show_disk_dialog(msx0_host, current_disk, available_disks))
 
     def _show_disk_dialog(self, msx0_host, current_disk, available_disks):
+        logger.debug("_show_disk_dialog:start")
         self.hide_spinner()
         
         def on_disk_select(selected_disk):
             self.change_disk(msx0_host, selected_disk)
+            self.refresh_msx0_file_list()
         
         dialog = DiskSelectionDialog(current_disk, available_disks, on_disk_select)
         dialog.open()
+        logger.debug("_show_disk_dialog:end")
 
     def change_disk(self, msx0_host, new_disk):
         try:
@@ -1438,9 +1459,8 @@ class MSX0RemoteUploader(BoxLayout):
                 changed_disk = result.split("\r\n")[1].strip()
                 if changed_disk == new_disk:
                     self.show_info_popup(f"Disk changed to {new_disk}")
-                    parsed_files = self.get_file_list(host=msx0_host,existing_connection=tn)
+                    parsed_files = self.get_file_list_msx0(host=msx0_host,existing_connection=tn)
                     Clock.schedule_once(lambda dt: self.update_ui_for_msx0(msx0_host, parsed_files))
-                    # self.refresh_msx0_file_list()
                 else:
                     self.show_error_popup(f"Failed to change disk to {new_disk}")
         except Exception as e:
@@ -1546,7 +1566,8 @@ class MSX0RemoteUploader(BoxLayout):
         selected_servers = self.get_selected_servers()
 
         if not selected_files or not selected_servers:
-            self.show_error_popup("No files or servers selected")
+            self.show_error_popup(f"No files or servers selected")
+            logger.debug(f"upload_file:files:{selected_files}\nservers:{selected_servers}")
             return
 
         self.upload_cancel_flag.clear()
@@ -1578,13 +1599,14 @@ class MSX0RemoteUploader(BoxLayout):
 
     def get_selected_servers(self):
         selected_servers = []
-        for child in self.ids.msx0_list_layout.children:
-            if isinstance(child, BoxLayout):
-                checkbox = child.children[-1]
-                if isinstance(checkbox, CheckBox) and checkbox.active:
-                    server_label = child.children[-2]
-                    if isinstance(server_label, Label):
-                        selected_servers.append(server_label.text.split('\\')[0])
+        for msx0_info_layout in self.ids.msx0_list_layout.children:
+            if isinstance(msx0_info_layout, MSX0InfoLayout):
+                # サーバー情報行は最初の子要素と仮定
+                info_line = msx0_info_layout.children[-1]  # 注意: children リストは逆順
+                if isinstance(info_line, BoxLayout):
+                    checkbox = info_line.children[-1]  # チェックボックスは最初の子要素と仮定
+                    if isinstance(checkbox, CheckBox) and checkbox.active:
+                        selected_servers.append(msx0_info_layout.msx0_host)
         return selected_servers
 
     def upload_worker(self, server_ip, files_to_upload):
@@ -1613,7 +1635,7 @@ class MSX0RemoteUploader(BoxLayout):
         self.upload_spinner.update_progress(progress)
 
     def finish_upload(self, dt):
-        self.display_servers()
+        self.display_msx0_list()
         self.upload_spinner.dismiss()
         elapsed_time = time.time() - self.upload_start_time
         self.show_info_popup(f"Upload completed\nSuccessful uploads: {self.successful_uploads}/{self.total_uploads}\nTotal time: {elapsed_time}sec\n")
@@ -1799,7 +1821,6 @@ class MSX0RemoteUploader(BoxLayout):
 
 
     def refresh_msx0_file_list(self, *args):
-        # 改修: LoadingSpinnerを表示
         self.show_spinner()
         self.msx0_refresh_button.disabled = True
         
@@ -1807,15 +1828,19 @@ class MSX0RemoteUploader(BoxLayout):
         threading.Thread(target=self._refresh_msx0_file_list_thread).start()
 
     def _refresh_msx0_file_list_thread(self):
-        self.display_servers()
+        self.display_msx0_list()
         self.hide_spinner()
         self.msx0_refresh_button.disabled = False
         logger.debug("MSX0 file list refreshed")
         
     def remove_msx0_server(self, server_ip):
-        if server_ip in self.msx0_list:
-            self.msx0_list.remove(server_ip)
-            self.display_servers()
+        if server_ip in self.msx0_layouts:
+            msx0_info_layout = self.msx0_layouts.pop(server_ip)
+            Clock.schedule_once(lambda dt: self.ids.msx0_list_layout.remove_widget(msx0_info_layout))
+            # if server_ip in self.msx0_layouts:
+            #     self.ids.msx0_list_layout.remove_widget(self.msx0_layouts[server_ip])
+            #     del self.msx0_layouts[server_ip]
+            self.display_msx0_list()
         else:
             self.show_error_popup(f"Server {server_ip} not found in the list")
  

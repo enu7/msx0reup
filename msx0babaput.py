@@ -10,7 +10,7 @@ import threading
 
 def is_valid_filename(filename):
     # ファイル名が8文字+拡張子3文字であるかどうかをチェックする正規表現
-    pattern = r'^[A-Za-z0-9_-]{1,8}\.[A-Za-z0-9_-]{3}$'
+    pattern = r'^[A-Za-z0-9_-]{1,8}(\.[A-Za-z0-9_-]{1,3})?$'
     return re.match(pattern, filename)
 
 def extract_list_to_ok(text):
