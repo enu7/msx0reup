@@ -5,20 +5,16 @@
 <MSX0RemoteUploader>:
     canvas.before:
         Color:
-#            rgba:0.35,0.33,0.88,1
-#            rgba:0.5,0.46,0.96,1
             rgba: 0.4,0.86,0.94,1 
         Rectangle:
             pos: self.pos
             size: self.size
 
-#    orientation: 'vertical'
     padding: 5,5,5,5
 
     BoxLayout:
         orientation: 'horizontal'
         size:root.size
-#        height: 50
         canvas.before:
             Color:
                 #rgba:0.5,0.46,0.96,1
@@ -37,8 +33,6 @@
                 text: 'MSX0\nRemote\nUPLOADER'
                 bold: True
                 size: 128,128
-#                size_hint_x: 0.1
-    #            width: 200
                 color: 1, 1, 1, 1  # White text color)
             Button:
                 text: 'Settings'
@@ -106,7 +100,6 @@
                         source:'./icon/toggle_all_checkboxes_btn.png'
                         text: 'ALL\nCheck'
                         font_size: 11
-#                        size_hint_x: 0.15
                         on_press: root.toggle_all_checkboxes()
                     Label:
                         text: 'List of FILES on Temporally'
@@ -136,35 +129,11 @@
                         size_hint_y: None
                         height: self.minimum_height
 
-                        #BoxLayout:
-                        #    size_hint_y: None
-                        #    height: 30
-                        #    CheckBox:
-                        #        size_hint_x: None
-                        #        width: 30
-                        #    Label:
-                        #        text: 'aaaa.txt'
-                        #    Label:
-                        #        text: '100byte'
-                        #    Label:
-                        #        text: 'LF'
-                        #    Button:
-                        #        text: 'CONV\nCR+LF'
-                        #        font_size:10
-                        #        size_hint_x: None
-                        #        width: 32
-                        #    Button:
-                        #        text: 'DEL\nETE'
-                        #        font_size:10
-                        #        size_hint_x: None
-                        #        width: 32
-
             # Upload Button Panel
             BoxLayout:
                 orientation: 'vertical'
                 size_hint_x: None
                 width: 32
-#                spacing: 10
                 canvas.before:
                     Color:
                         rgba: 0.2, 0.25, 0.6, 1 # Dark blue color for Upload Button Panel
@@ -248,9 +217,7 @@
                 ScrollView:
                     BoxLayout:
                         orientation: 'vertical'
-#                    GridLayout:
                         id:msx0_list_layout
-#                        cols: 1
                         size_hint_y: None
                         height: self.minimum_height
                         # Add your file list items here
