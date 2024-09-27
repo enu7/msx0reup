@@ -9,7 +9,6 @@ import logging
 from jnius import autoclass
 from kivy.config import ConfigParser
 from kivy.config import Config
-#from PyQt5.QtWidgets import QApplication
 import sys
 import traceback
 from kivy.core.text import LabelBase, DEFAULT_FONT
