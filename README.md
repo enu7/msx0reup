@@ -1,5 +1,5 @@
 ![image](https://github.com/user-attachments/assets/9514b0f6-918e-47f3-8c80-58329f70fd72)
-# MSX0 REMOTE UPLOADER version 0.1.0
+# MSX0 REMOTE UPLOADER version 0.1.2
 MSX0 REMOTE UPLOADERは、MSX0に対してリモートからファイルをアップロードすることを膜的としたPythonプログラムです。
 # 使用について
 まだベータ版で品質はまだまだです。その点をご理解いただいたうえでご使用ください。
