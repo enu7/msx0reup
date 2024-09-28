@@ -12,7 +12,6 @@ import lhafile
 import traceback
 import socket
 import ssl
-import OpenSSL
 import time
 import mimetypes
 import platform
@@ -25,15 +24,12 @@ from urllib.parse import urlparse, urljoin
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.properties import StringProperty,ListProperty,ObjectProperty,BooleanProperty
-#from kivy.resources import resource_add_path
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.checkbox import CheckBox
-#from kivy.uix.label import Label
-#from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.textinput import TextInput
@@ -44,9 +40,7 @@ from kivy.uix.settings import SettingsWithNoMenu
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.scrollview import ScrollView
-#from kivy.utils import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
-#from functools import partial
 from collections import deque
 from msx0babaput import msx0babaput
 from kivy.uix.spinner import Spinner
