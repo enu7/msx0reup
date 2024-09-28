@@ -12,6 +12,7 @@ import lhafile
 import traceback
 import socket
 import ssl
+import OpenSSL
 import time
 import mimetypes
 import platform
@@ -323,120 +324,75 @@ class AsyncTextBrowser(RecycleView):
                             return True
         return False
 
-
-
     async def async_load_url(self, url, max_redirects=10):
         try:
-            redirect_count = 0
-            while redirect_count < max_redirects:
-                parsed_url = urlparse(url)
-                hostname = parsed_url.hostname
-                port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            })
 
-                if parsed_url.scheme == 'https':
-                    ssl_context = ssl.create_default_context(cafile=certifi.where())
-                    ssl_context.check_hostname = False
-                    ssl_context.verify_mode = ssl.CERT_NONE
+            response = await asyncio.get_event_loop().run_in_executor(
+                None, 
+                lambda: session.get(url, verify=certifi.where(), allow_redirects=True)
+            )
+            response.raise_for_status()
 
-                addrinfo = await asyncio.get_event_loop().getaddrinfo(
-                    hostname, port, family=socket.AF_INET, proto=socket.IPPROTO_TCP,
-                )
-                ip = addrinfo[0][4][0]
-                logger.debug(f"Resolved IP: {ip}")
+            # エンコーディングの検出と設定
+            if response.encoding is None:
+                detected = chardet.detect(response.content)
+                response.encoding = detected['encoding']
 
-                # ssl引数を条件付きで設定
-                connection_args = {'host': ip, 'port': port}
-                if parsed_url.scheme == 'https':
-                    connection_args['ssl'] = ssl_context
+            logger.debug(f"async_load_url:encoding:{response.encoding}")
 
-                reader, writer = await asyncio.open_connection(**connection_args)
+            # HTMLのメタタグからエンコーディングを取得
+            soup = BeautifulSoup(response.content, 'html.parser')
+            meta_charset = soup.find('meta', charset=True)
+            meta_content_type = soup.find('meta', {'http-equiv': 'Content-Type'})
+            logger.debug(f"async_load_url:meta_charset:{meta_charset}\nmeta_content_type:{meta_content_type}")
+            if meta_charset:
+                response.encoding =  meta_charset['charset']
+            elif meta_content_type:
+                content = meta_content_type['content'].lower()
+                if 'charset=' in content:
+                    response.encoding =  content.split('charset=')[-1]
+            # x-sjisをShift_JISに変換
+            if response.encoding  and response.encoding.lower() == 'x-sjis':
+                response.encoding  = 'shift_jis'
 
-                request = f"GET {parsed_url.path or '/'} HTTP/1.1\r\nHost: {hostname}\r\nConnection: close\r\n\r\n"
-                writer.write(request.encode())
-                await writer.drain()
-                raw_content = await reader.read()
 
-                detected = chardet.detect(raw_content)
-                encoding = detected['encoding']
-                logger.debug(f"async_load_url:encoding:{encoding}")
+            logger.debug(f"async_load_url:encoding:{response.encoding}")
+            html_content = response.text
+            final_url = response.url  # 最終的なURL（リダイレクト後）
 
-                # HTMLのメタタグからエンコーディングを取得
-                soup = BeautifulSoup(raw_content, 'html.parser')
-                meta_charset = soup.find('meta', charset=True)
-                meta_content_type = soup.find('meta', {'http-equiv': 'Content-Type'})
+            # コンテンツの抽出
+            extracted_content = self.extract_content(html_content, final_url)
 
-                if meta_charset:
-                    encoding = meta_charset['charset']
-                elif meta_content_type:
-                    content = meta_content_type['content']
-                    if 'charset=' in content:
-                        encoding = content.split('charset=')[-1]
-                # x-sjisをShift_JISに変換
-                if encoding and encoding.lower() == 'x-sjis':
-                    encoding = 'shift_jis'
+            # HTMLをテキストに変換
+            h = html2text.HTML2Text()
+            h.ignore_images = True
+            h.unicode_snob = True
+            h.body_width = 0
+            h.ignore_links = False
+            h.inline_links = True
+            h.use_automatic_links = False
+            text = h.handle(extracted_content)
 
-                logger.debug(f"Final encoding: {encoding}")
+            # 相対URLを絶対URLに変換
+            text = self.convert_relative_urls(text, final_url)
 
-                try:
-                    html = raw_content.decode(encoding)
-                except UnicodeDecodeError:
-                    logger.debug(f"async_load_url:encoding:UnicodeDecodeError")
-                    html = raw_content.decode(encoding,'replace')
-                
-
-                _headers, _, body = html.partition('\r\n\r\n')
-                headers = {}
-                for line in _headers.splitlines():
-                    if ": "  in line:
-                        key, value = line.split(": ",1)
-                        headers[key] = value
-
-                status_line =  _headers.splitlines()[0]
-                status_code = int(status_line.split()[1])
-
-                writer.close()
-                await writer.wait_closed()
-                logger.debug(f"async_load_url:statuscode:{status_code}")
-                if status_code in (301, 302, 303, 307, 308):
-                    logger.debug(f"async_load_url:Location:{headers['Location']}")
-                    url = urljoin(url, headers['Location'])
-                    redirect_count += 1
-                    logger.debug(f"async_load_url:Redirecting to: {url}")
-
-                elif status_code == 200:
-                    if  'text/html' in headers['Content-Type']:
-                        logger.debug("async_load_url:Content-Type:text/html")
-
-                        extracted_body = self.extract_content(body, url)
-
-                        h = html2text.HTML2Text()
-                        h.ignore_images = True
-                        h.unicode_snob = True
-                        h.body_width = 0
-                        h.ignore_links = False
-                        h.inline_links = True
-                        h.use_automatic_links=False
-                        text = h.handle(extracted_body)
-
-                        Clock.schedule_once(lambda dt: self.update_text_browser(url, text))
-                    else:
-                        logger.debug("async_load_url:Content-Type:other")
-                        Clock.schedule_once(lambda dt: self.parent.parent.parent.parent.parent.confirm_download(url))
-                    
-                    return #正常終了
-                else:
-                    error_message = f"Error: HTTP {status_code}"
-                    logger.error(error_message)
-                    Clock.schedule_once(lambda dt: self.update_text_browser(url, error_message))
-
-                    return #異常終了
-            logger.debug(f"Too many redirects (max: {max_redirects})")
-            raise ValueError(f"Too many redirects (max: {max_redirects})")
+            Clock.schedule_once(lambda dt: self.update_text_browser(final_url, text))
         except Exception as e:
             error_message = f"Error loading URL: {str(e)}"
-            logger.error(traceback.format_exc())
             logger.error(error_message)
+            logger.error(traceback.format_exc())
             Clock.schedule_once(lambda dt: self.update_text_browser(url, error_message))
+    def convert_relative_urls(self, text, base_url):
+        def replace_url(match):
+            url = match.group(2)
+            return f'[{match.group(1)}]({urljoin(base_url, url)})'
+        # Markdownリンクの正規表現パターン
+        pattern = r'\[(.*?)\]\((.*?)\)'
+        return re.sub(pattern, replace_url, text)
 
     def update_text_browser(self, url, text):
         logger.debug(f"update_text_browser:")
@@ -571,6 +527,8 @@ class MSX0RemoteUploader(BoxLayout):
 
         self.current_sort = ('date', True)  # (sort_key, is_ascending)
 
+        # SSL設定を行う
+        self.setup_ssl()
 
     def post_init(self, dt):
         self.temp_refresh_button = self.ids.temp_refresh_button
@@ -579,6 +537,12 @@ class MSX0RemoteUploader(BoxLayout):
         if hasattr(self.ids, 'server_ip_input'):
             self.ids.server_ip_input.text = self.config.get('General', 'default_msx0_ip')
         Clock.schedule_once(self.add_text_browser, 0)
+
+    def setup_ssl(self):
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     def add_text_browser(self, dt):
         logger.debug("Adding TextBrowser")
