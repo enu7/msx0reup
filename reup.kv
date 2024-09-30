@@ -5,7 +5,7 @@
 <MSX0RemoteUploader>:
     canvas.before:
         Color:
-            rgba: 0.4,0.86,0.94,1 
+            rgba: root.main_color 
         Rectangle:
             pos: self.pos
             size: self.size
@@ -17,8 +17,7 @@
         size:root.size
         canvas.before:
             Color:
-                #rgba:0.5,0.46,0.96,1
-                rgba: 0.2, 0.25, 0.6, 1
+                rgba: root.secondary_color
             Rectangle:
                 pos: self.pos
                 size: self.size
@@ -50,7 +49,7 @@
                 spacing: 10
                 canvas.before:
                     Color:
-                        rgba: 0.1, 0.1, 0.4, 1  # Dark blue color for Temp File Panel
+                        rgba: root.tertiary_color
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -136,7 +135,7 @@
                 width: 32
                 canvas.before:
                     Color:
-                        rgba: 0.2, 0.25, 0.6, 1 # Dark blue color for Upload Button Panel
+                        rgba: root.secondary_color
                     Rectangle:
                         pos: self.pos
                         size: self.size
@@ -173,7 +172,7 @@
                 spacing: 10
                 canvas.before:
                     Color:
-                        rgba: 0.1, 0.1, 0.4, 1  # Dark blue color for Basic File Panel
+                        rgba: root.tertiary_color
                     Rectangle:
                         pos: self.pos
                         size: self.size

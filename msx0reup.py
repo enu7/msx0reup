@@ -486,6 +486,9 @@ class MSX0RemoteUploader(BoxLayout):
         ('size', True, 'Size↑'),
         ('size', False, 'Size↓'),
     ]
+    main_color = ListProperty([0.9, 0.70, 0.75, 1])
+    secondary_color = ListProperty([0.8, 0.25, 0.3, 1])
+    tertiary_color = ListProperty([0.2, 0.05, 0.05, 1])
     def __init__(self, config, **kwargs):
         logger.debug("MSX0RemoteUploader:init")
         super().__init__(**kwargs)
@@ -521,8 +524,18 @@ class MSX0RemoteUploader(BoxLayout):
 
         self.current_sort = ('date', True)  # (sort_key, is_ascending)
 
-        # SSL設定を行う
-        self.setup_ssl()
+        self.load_color_settings()
+
+    def load_color_settings(self):
+        color_theme = self.config.get('General', 'color_theme')
+        if color_theme == 'Red':
+            self.main_color = [0.9, 0.70, 0.75, 1]
+            self.secondary_color = [0.8, 0.25, 0.3, 1]
+            self.tertiary_color = [0.2, 0.05, 0.05, 1]
+        else:  # Blue
+            self.main_color = [0.4, 0.86, 0.94, 1]
+            self.secondary_color = [0.2, 0.25, 0.6, 1]
+            self.tertiary_color = [0.1, 0.1, 0.4, 1]
 
     def post_init(self, dt):
         self.temp_refresh_button = self.ids.temp_refresh_button
@@ -531,12 +544,6 @@ class MSX0RemoteUploader(BoxLayout):
         if hasattr(self.ids, 'server_ip_input'):
             self.ids.server_ip_input.text = self.config.get('General', 'default_msx0_ip')
         Clock.schedule_once(self.add_text_browser, 0)
-
-    def setup_ssl(self):
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     def add_text_browser(self, dt):
         logger.debug("Adding TextBrowser")
@@ -704,6 +711,14 @@ class MSX0RemoteUploader(BoxLayout):
                 "key": "default_msx0_ip"
             },
             {
+                "type": "options",
+                "title": "Color Theme",
+                "desc": "Choose the color theme for the application",
+                "section": "General",
+                "key": "color_theme",
+                "options": ["Blue", "Red"]
+            },
+            {
                 "type": "path",
                 "title": "BASIC Program Path",
                 "desc": "Path to the BASIC program file",
@@ -721,6 +736,7 @@ class MSX0RemoteUploader(BoxLayout):
         self.ids.server_ip_input.text = self.config.get('General', 'default_msx0_ip')
         #self.uploader.timeout = self.config.getint('Advanced', 'upload_timeout')
         self.uploader.load_basic_program()
+        self.load_color_settings()  # 色設定を適用
 
     def open_settings(self):
         if not self.settings_popup:
@@ -750,6 +766,8 @@ class MSX0RemoteUploader(BoxLayout):
         self.apply_settings()
 
     def on_config_change(self, instance, config, section, key, value):
+        if section == 'General' and key == 'color_theme':
+            self.load_color_settings()
         self.config.set(section, key, value)
         self.config.write()
 

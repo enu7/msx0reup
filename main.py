@@ -80,7 +80,8 @@ class ReupApp(App):
             'General': {
                 'temp_folder': './msx0reup_temp',
                 'default_url': 'https://enu7.sakura.ne.jp/msx/',
-                'default_msx0_ip': '192.168.0.11'
+                'default_msx0_ip': '192.168.0.11',
+                'color_theme': 'Blue' 
             },
             'Advanced': {
                 'basic_program_path': './default_basic_program.txt'
