@@ -67,6 +67,7 @@ Githubのメニュー<CODE>からDownload ZiPで一式ダウンロードし解�
   Temporary Folder: MSX0 Remote Uploderを実行したパソコンで一時的にファイルを保管する場所を指定します
   Default Download URL: テキストブラウザで最初に表示するサイトのURLを指定します
   Dfault MSX0 IP: MSX0のIP入力欄のデフォルト値を指定します
+  Color Theme: UIのカラーテーマを切り替えます。赤と青を用意しています。
   BASIC Program PATH: MSX0側でbase64テキストを受信しデコードを行うBASICプログラムを指定します。チューニングしてください。
  
 # 転送の作り
