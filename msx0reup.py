@@ -821,6 +821,11 @@ class MSX0RemoteUploader(BoxLayout):
         filename_label = Label(text=file, halign='left')
         filename_label.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
         file_line.add_widget(filename_label)
+
+        name_edit_btn = IconButton(source='./icon/name_edit_btn.png', size_hint_x=None, width=32)
+        name_edit_btn.bind(on_press=lambda instance: self.show_rename_dialog(file_path, filename_label))
+        file_line.add_widget(name_edit_btn)
+
         file_line.add_widget(Label(text=f'{file_size} bytes'))
         file_line.add_widget(Label(text=newline_type))
         
@@ -849,6 +854,42 @@ class MSX0RemoteUploader(BoxLayout):
         file_line.add_widget(delete_btn)
 
         return file_line
+    
+    def show_rename_dialog(self, file_path, filename_label):
+        content = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        new_name_input = TextInput(text=os.path.basename(file_path), multiline=False)
+        content.add_widget(new_name_input)
+        
+        btn_layout = BoxLayout(size_hint_y=None, height=30, spacing=10)
+        rename_btn = Button(text='Rename')
+        cancel_btn = Button(text='Cancel')
+        
+        btn_layout.add_widget(rename_btn)
+        btn_layout.add_widget(cancel_btn)
+        content.add_widget(btn_layout)
+
+        popup = Popup(title='Rename File', content=content, size_hint=(None, None), size=(400, 200))
+        
+        def on_rename(instance):
+            new_name = new_name_input.text
+            if new_name:
+                self.rename_file(file_path, new_name, filename_label)
+            popup.dismiss()
+
+        rename_btn.bind(on_press=on_rename)
+        cancel_btn.bind(on_press=popup.dismiss)
+
+        popup.open()
+
+    def rename_file(self, old_path, new_name, filename_label):
+        dir_path = os.path.dirname(old_path)
+        new_path = os.path.join(dir_path, new_name)
+        try:
+            os.rename(old_path, new_path)
+            filename_label.text = new_name
+            self.show_info_popup(f"File renamed to {new_name}")
+        except Exception as e:
+            self.show_error_popup(f"Error renaming file: {str(e)}")
 
     def detect_newline_type(self, file_path):
         try:
@@ -1571,7 +1612,8 @@ class MSX0RemoteUploader(BoxLayout):
             if isinstance(child, BoxLayout):
                 checkbox = child.children[-1]
                 if isinstance(checkbox, CheckBox) and checkbox.active:
-                    filename_label = child.children[4]
+                    filename_label = child.children[5]
+                    logger.debug(f"get_selected_servers:{filename_label}")
                     file_path = os.path.join(self.temp_folder_path, filename_label.text)
                     selected_files.append(file_path)
         return selected_files
