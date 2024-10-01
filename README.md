@@ -1,5 +1,5 @@
 ![image](https://github.com/user-attachments/assets/9514b0f6-918e-47f3-8c80-58329f70fd72)
-# MSX0 REMOTE UPLOADER version 0.1.2
+# MSX0 REMOTE UPLOADER version 0.1.4
 MSX0 REMOTE UPLOADERは、MSX0に対してリモートからファイルをアップロードすることを膜的としたPythonプログラムです。
 # 使用について
 まだベータ版で品質はまだまだです。その点をご理解いただいたうえでご使用ください。
@@ -44,6 +44,7 @@ Githubのメニュー<CODE>からDownload ZiPで一式ダウンロードし解�
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/toggle_all_checkboxes_btn.png) 一時領域のファイルをすべて選択するボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/refresh_file_list_btn.png) 一時領域のファイル表示を更新するボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/delete_selected_files_btn.png) 選択したファイルをすべて削除するボタン
+![image](https://github.com/enu7/msx0reup/blob/main/icon/name_edit_btn.png) 該当ファイルの名前を編集するボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/delete_btn.png) 該当ファイルを削除するボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/extract_btn.png) 該当DSKファイルからファイルを取り出すボタン
 ![image](https://github.com/enu7/msx0reup/blob/main/icon/unzip_btn.png) 該当ZIP/LZHファイルを解凍するボタン
