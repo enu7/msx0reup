@@ -7,6 +7,7 @@ import base64
 import os
 import difflib
 import threading
+import traceback
 
 def is_valid_filename(filename):
     # ファイル名が8文字+拡張子3文字であるかどうかをチェックする正規表現
@@ -45,14 +46,17 @@ def is_match(text1, text2):
     # 両方のテキストを行に分割
     lines1 = text1.splitlines()
     lines2 = text2.splitlines()
-    # 両方のテキストを行に分割し、空白行と行番号20を除外
-    lines1 = [line.strip() for line in text1.splitlines() if line.strip() and not line.strip().startswith("20 ")]
-    lines2 = [line.strip() for line in text2.splitlines() if line.strip() and not line.strip().startswith("20 ")]
+    # 両方のテキストを行に分割し、空白行と行番号2と行番号20を除外
+    lines1 = [line.strip() for line in text1.splitlines() if line.strip() and not line.strip().startswith("2 ") and not line.strip().startswith("20 ")]
+    lines2 = [line.strip() for line in text2.splitlines() if line.strip() and not line.strip().startswith("2 ") and not line.strip().startswith("20 ")]
    
     # difflib.SequenceMatcherを使用して類似度を計算
     matcher = difflib.SequenceMatcher(None, lines1, lines2)
     similarity = matcher.ratio()
-    
+    print("lines1:")
+    print(lines1)
+    print("lines2:")
+    print(lines2)
     # 差分を表示
     diff = list(difflib.ndiff(lines1, lines2))
     print("Differences:")
@@ -125,23 +129,25 @@ def msx0babaput(host, program, message_file_path, cancel_flag, timeout=8):
 
             else:
                 # プログラムが既に存在するかチェック
-                tn.write(b'LIST 10\r\n')
+                tn.write(b'LIST 1-2\r\n')
                 existing_program = tn.read_until(b'Ok').decode("utf-8")
-                if "10 DEFINT" in existing_program and attempt==0:  # プログラムが既に存在する場合
+                if "1 'msx0babaput_decoder" in existing_program and attempt==0:  # Decoderプログラムが既に存在する場合
                     print("Existing program detected. Updating file name only.")
                     tn.write(f'20 LET F$ = "{message_file_name}"\r\n'.encode('ascii'))
-#                    tn.read_until(b'Ok')
                     sys.stdout.write("\rStart initilizing..Skip.")
                     sys.stdout.flush()
                     print()
                 else:
-                    tn.write(b'new\r\n')	
-                    #tn.read_until(b'Ok')
-                    read_until_timeout(b'Ok', timeout)
-                    sys.stdout.write("\rStart initilizing..Done.")
-                    sys.stdout.flush()
-                    print()
-
+                    if  "2 'msx0babaput_encoder" in existing_program:  # Encoderプログラムが既に存在する場合
+                        sys.stdout.write("\rStart initilizing..Skip.")
+                        sys.stdout.flush()
+                        print()
+                    else:
+                        tn.write(b'new\r\n')
+                        read_until_timeout(b'Ok', timeout)
+                        sys.stdout.write("\rStart initilizing..Done.")
+                        sys.stdout.flush()
+                        print()
                     sys.stdout.write("Start building base64decoder on msx0 basic.")
                     sys.stdout.flush()
                     program = program + '\r\n20 LET F$ = "' + message_file_name + '"\r\n'
@@ -150,11 +156,9 @@ def msx0babaput(host, program, message_file_path, cancel_flag, timeout=8):
                     for i in range(0,retry):
                         # BASICプログラムをサーバに送信
                         tn.write(program.encode('ascii') + b"\r\n") 
-                        tn.write(b'LIST\r\n')
+                        tn.write(b'LIST 1-4999\r\n')
                         response = tn.read_until(b'Ok').decode("utf-8")
-                        print(response)
                         extracted = extract_list_to_ok(response)
-                        print(extracted)
                         if is_match(extracted,program):#プログラム転送ミスがなければ処理を進める
                             break
                         print("retry")
@@ -179,7 +183,7 @@ def msx0babaput(host, program, message_file_path, cancel_flag, timeout=8):
                     read_until_timeout(b'Ok', timeout)#tn.read_until(b'Ok')
                     return "Upload cancelled", time.time() - start_time
                 tn.write(base64_message[i:i+76].encode('ascii') + b"\r\n")  # 改行コードをCR+LFに変更
-                read_until_timeout(b'?', timeout)#tn.read_until(b'?')
+                read_until_timeout(b':?', timeout)#tn.read_until(b'?')
                 # インジケータ表示
                 sys.stdout.write("\rTransferring: {}/{} chunks".format((i//76)+1, total_chunks+1))
                 sys.stdout.flush()
@@ -196,6 +200,7 @@ def msx0babaput(host, program, message_file_path, cancel_flag, timeout=8):
         
         except Exception as e:
             if attempt < max_retries:
+                print(traceback.format_exc())
                 print(f"Connection failed. Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
             else:
@@ -220,9 +225,10 @@ if __name__ == "__main__":
 
     # BASICプログラム
     basic_program = '''
+1 'msx0babaput_decoder\r\n
 10 DEFINT A-Z:DIM F$, I$, O$, B$, T$, C$, B(4), OB(3):CLEAR 10000\r\n
 20 LET F$ = "OUTPUT.BIN"\r\n
-30 ON ERROR GOTO 9000:KILL F$\r\n
+30 ON ERROR GOTO 2000:KILL F$\r\n
 40 S=57:OPEN F$ AS #1 LEN=S\r\n
 50 INPUT ":"; I$\r\n
 60 IF I$="`" THEN CLOSE #1:END\r\n
@@ -263,8 +269,8 @@ if __name__ == "__main__":
 1160   PUT #1,F+I\r\n
 1170 NEXT I\r\n
 1180 RETURN\r\n
-9000 IF ERL=30 AND ERR=53 THEN RESUME 40\r\n
-9100 ON ERROR GOTO 0\r\n
+2000 IF ERL=30 AND ERR=53 THEN RESUME 40\r\n
+2100 ON ERROR GOTO 0\r\n
 '''
 
     # 全プロセスを実行

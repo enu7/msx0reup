@@ -155,14 +155,18 @@
                         height: 50
                         on_press: app.root.upload_file()
 
+                    IconButton:
+                        id: download_button
+                        source: './icon/download_msx0file_btn.png'
+                        text: 'DOWN\nLOAD'
+                        size: (32,32)
+                        size_hint_y: None
+                        height: 50
+                        on_press: app.root.download_files()
+                        
                 Label:
                     id:label1
                     text:""
-                BoxLayout:
-                    id: upload_status
-                    orientation: 'vertical'
-                    size_hint_y: None
-                    height: 60  # プログレスバーとラベルの合計の高さ
 
             # Basic File Panel
             BoxLayout:

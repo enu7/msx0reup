@@ -43,6 +43,7 @@ from kivy.uix.scrollview import ScrollView
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import deque
 from msx0babaput import msx0babaput
+from msx0babaget import get_file_from_MSX0
 from kivy.uix.spinner import Spinner
 from kivy.properties import NumericProperty
 
@@ -124,7 +125,36 @@ class UIComponents:
             self.progress_bar.value = value
             self.progress_label.text = f"Uploading: {int(value)}%"
             logger.debug(f"UploadSpinner:update_progress:{self.progress_label.text}")
+    class DownloadSpinner(ModalView):
+        def __init__(self, **kwargs):
+            super(UIComponents.DownloadSpinner, self).__init__(**kwargs)
+            self.size_hint = (None, None)
+            self.size = (300, 200)
+            self.auto_dismiss = False
+            
+            layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+            
+            self.spinner_image = Image(
+                source='./icon/spinner.gif',
+                size_hint=(None, None),
+                size=(50, 50),
+                pos_hint={'center_x': 0.5}
+            )
+            self.spinner_image.anim_delay = 0.1
+            self.spinner_image.anim_loop = 0
+            layout.add_widget(self.spinner_image)
+            
+            self.progress_bar = ProgressBar(max=100, value=0)
+            layout.add_widget(self.progress_bar)
+            
+            self.progress_label = Label(text="Downloading: 0%")
+            layout.add_widget(self.progress_label)
+            
+            self.add_widget(layout)
 
+        def update_progress(self, value):
+            self.progress_bar.value = value
+            self.progress_label.text = f"Downloading: {int(value)}%"
 
 class Utils:
     @staticmethod
@@ -498,7 +528,7 @@ class MSX0RemoteUploader(BoxLayout):
         self.settings = SettingsWithNoMenu()
         self.settings_popup = None
         self.temp_folder_path = './msx0reup_temp'
-        self.uploader = FileUploader(config)
+        #self.uploader = FileUploader(config)
         # self.msx0_list = []
         self.active_threads = 0
         self.progress_bar = None
@@ -524,7 +554,6 @@ class MSX0RemoteUploader(BoxLayout):
 
         self.current_sort = ('date', True)  # (sort_key, is_ascending)
 
-        self.load_color_settings()
 
     def load_color_settings(self):
         color_theme = self.config.get('General', 'color_theme')
@@ -536,6 +565,22 @@ class MSX0RemoteUploader(BoxLayout):
             self.main_color = [0.4, 0.86, 0.94, 1]
             self.secondary_color = [0.2, 0.25, 0.6, 1]
             self.tertiary_color = [0.1, 0.1, 0.4, 1]
+
+    def load_basic_programs(self):
+        self.upload_basic_program = self.load_basic_program('upload_basic_program_path')
+        self.download_basic_program = self.load_basic_program('download_basic_program_path')
+
+
+    def load_basic_program(self, config_key):
+        basic_program_path = self.config.get('Advanced', config_key)
+        try:
+            with open(basic_program_path, 'r') as file:
+                lines = file.readlines()
+                return ''.join(line.rstrip() + '\r\n' for line in lines)
+                
+        except FileNotFoundError as e:
+            print(f"BASIC program file not found: {basic_program_path}")
+            raise e
 
     def post_init(self, dt):
         self.temp_refresh_button = self.ids.temp_refresh_button
@@ -720,10 +765,17 @@ class MSX0RemoteUploader(BoxLayout):
             },
             {
                 "type": "path",
-                "title": "BASIC Program Path",
-                "desc": "Path to the BASIC program file",
+                "title": "Upload BASIC Program Path",
+                "desc": "Path to the BASIC program file for uploading",
                 "section": "Advanced",
-                "key": "basic_program_path"
+                "key": "upload_basic_program_path"
+            },
+            {
+                "type": "path",
+                "title": "Download BASIC Program Path",
+                "desc": "Path to the BASIC program file for downloading",
+                "section": "Advanced",
+                "key": "download_basic_program_path"
             }
         ]
         '''
@@ -735,8 +787,9 @@ class MSX0RemoteUploader(BoxLayout):
         self.ids.url_input.text = self.config.get('General', 'default_url')
         self.ids.server_ip_input.text = self.config.get('General', 'default_msx0_ip')
         #self.uploader.timeout = self.config.getint('Advanced', 'upload_timeout')
-        self.uploader.load_basic_program()
+        #self.uploader.load_basic_program()
         self.load_color_settings()  # 色設定を適用
+        self.load_basic_programs()
 
     def open_settings(self):
         if not self.settings_popup:
@@ -768,6 +821,8 @@ class MSX0RemoteUploader(BoxLayout):
     def on_config_change(self, instance, config, section, key, value):
         if section == 'General' and key == 'color_theme':
             self.load_color_settings()
+        if section == 'Advanced' and (key == 'upload_basic_program_path' or key == 'download_basic_program_path'):
+            self.load_basic_programs()
         self.config.set(section, key, value)
         self.config.write()
 
@@ -844,7 +899,7 @@ class MSX0RemoteUploader(BoxLayout):
             file_line.add_widget(unlzh_btn)
         else:
             if newline_type == 'LF':
-                conv_btn = Button(text='CONV\nCR+LF', font_size=10, size_hint_x=None, width=32)
+                conv_btn = IconButton(source='./icon/convert_CRLF_btn.png', size_hint_x=None, width=32)
                 conv_btn.bind(on_press=lambda instance, fp=file_path: self.on_convert_crlf(instance, fp))
                 file_line.add_widget(conv_btn)
             else:
@@ -1219,11 +1274,16 @@ class MSX0RemoteUploader(BoxLayout):
 
     def create_file_line_for_msx0(self, file_info, msx0_host):
         file_line = BoxLayout(size_hint_y=None, height=24)
+        file_line.msx0_host = msx0_host
         file_line.add_widget(Label(text="", size_hint_x=None, width=30))
-        
+
         if file_info['is_directory']:
+            file_line.add_widget(Label(text="", size_hint_x=None, width=30))
             file_name = f"{file_info['name']}\\"  # ディレクトリ名の最後に「\」を追加
         else:
+            # チェックボックスを追加
+            checkbox = CheckBox(size_hint_x=None, width=30)
+            file_line.add_widget(checkbox) 
             file_name = f"{file_info['name']}.{file_info['ext']}" if file_info['ext'] else file_info['name']
         
         file_name_label = Label(text=file_name, halign='left', size_hint_x=0.4)
@@ -1637,7 +1697,8 @@ class MSX0RemoteUploader(BoxLayout):
                 break
             logger.debug(f"Uploading {file_path} to {server_ip}")
             try:
-                result, execution_time = self.uploader.upload_file(server_ip, file_path, self.upload_cancel_flag)
+                #result, execution_time = self.uploader.upload_file(server_ip, file_path, self.upload_cancel_flag)
+                result, execution_time = msx0babaput(server_ip, self.upload_basic_program, file_path, self.upload_cancel_flag, timeout=10)
                 logger.debug(f"Upload to {server_ip}: {result}")
                 logger.debug(f"Execution time: {execution_time} seconds")
                 if "Done" in result:
@@ -1812,7 +1873,7 @@ class MSX0RemoteUploader(BoxLayout):
             if isinstance(child, BoxLayout):
                 checkbox = child.children[-1]  # Assuming the checkbox is the last child
                 if isinstance(checkbox, CheckBox) and checkbox.active:
-                    filename_label = child.children[4]  # Assuming the filename label is the 5th child
+                    filename_label = child.children[5]  # Assuming the filename label is the 5th child
                     files_to_delete.append(filename_label.text)
 
         if not files_to_delete:
@@ -1970,32 +2031,107 @@ class MSX0RemoteUploader(BoxLayout):
         # ファイルリストを更新
         self.populate_file_list()
 
-class FileUploader:
 
-    def __init__(self, config ):
-        self.port = 2223
-        self.timeout = 10  # Default timeout value
-        self.config = config
-        self.load_basic_program()
+    def download_files(self):
+        selected_files = self.get_selected_files_msx0()
+
+        if not selected_files:
+            self.show_error_popup("No files selected")
+            return
+
+        self.download_spinner = UIComponents.DownloadSpinner()
+        self.download_spinner.open()
+
+        # サーバーIPごとにファイルをグループ化
+        files_by_server = {}
+        for file_path, server_ip in selected_files:
+            if server_ip not in files_by_server:
+                files_by_server[server_ip] = []
+            files_by_server[server_ip].append(file_path)
+
+        self.total_downloads = len(selected_files)
+        self.downloads_completed = 0
+        self.successful_downloads = 0
+
+        self.download_start_time = time.time()
+
+        # サーバーIPごとにダウンロードワーカーを起動
+        for server_ip, files in files_by_server.items():
+            threading.Thread(target=self.download_worker, args=(server_ip, files)).start()
+
+    def download_worker(self, server_ip, files):
+        logger.debug("download_worker:start")
+        for file_path in files:
+            try:
+                local_file_path = os.path.join(self.temp_folder_path, os.path.basename(file_path))
+                result, execution_time = get_file_from_MSX0(server_ip, self.download_basic_program, "", file_path, local_file_path)
+                if "Done" in result:
+                    self.successful_downloads += 1
+                else: 
+                    logger.debug(f"download_worker:{result}")
+                time.sleep(0.4)
+            except Exception as e:
+                logger.error(traceback.format_exc())
+                logger.error(f"Error downloading {file_path} from {server_ip}: {e}")
+            finally:
+                self.downloads_completed += 1
+                progress = (self.downloads_completed / self.total_downloads) * 100
+                Clock.schedule_once(lambda dt, p=progress: self.update_download_progress(p))
+
+        if self.downloads_completed == self.total_downloads:
+            Clock.schedule_once(self.finish_download)
+        logger.debug("download_worker:end")
+
+    def update_download_progress(self, progress):
+        self.download_spinner.update_progress(progress)
+
+    def finish_download(self, dt):
+        self.populate_file_list()
+        self.download_spinner.dismiss()
+        elapsed_time = time.time() - self.download_start_time
+        self.show_info_popup(f"Download completed\nSuccessful downloads: {self.successful_downloads}/{self.total_downloads}\nTotal time: {elapsed_time:.2f} sec")
+        self.successful_downloads = 0
+
+    def get_selected_files_msx0(self):
+        selected_files = []
+        for msx0_info_layout in self.ids.msx0_list_layout.children:
+            if isinstance(msx0_info_layout, MSX0InfoLayout):
+                logger.debug(f"get_select_files_msx0:msx0_info_layout found")
+                for child in msx0_info_layout.children:
+                    if isinstance(child, BoxLayout) and hasattr(child, 'msx0_host'):
+                        checkbox = child.children[-2]
+                        if isinstance(checkbox, CheckBox) and checkbox.active:
+                            file_name = child.children[3].text
+                            logger.debug(f"get_select_files_msx0:select:{file_name}")
+                            selected_files.append((file_name, child.msx0_host))
+        return selected_files
+    
+# class FileUploader:
+
+#     def __init__(self, config ):
+#         self.port = 2223
+#         self.timeout = 10  # Default timeout value
+#         self.config = config
+#         self.load_basic_program()
  
-    def load_basic_program(self):
-        basic_program_path = self.config.get('Advanced', 'basic_program_path')
-        try:
-            with open(basic_program_path, 'r') as file:
-                lines = file.readlines()
-                self.basic_program = ''.join(line.rstrip() + '\r\n' for line in lines)
-        except FileNotFoundError as e:
-            print(f"BASIC program file not found: {basic_program_path}")
-            raise e
+#     def load_basic_program(self):
+#         basic_program_path = self.config.get('Advanced', 'basic_program_path')
+#         try:
+#             with open(basic_program_path, 'r') as file:
+#                 lines = file.readlines()
+#                 self.basic_program = ''.join(line.rstrip() + '\r\n' for line in lines)
+#         except FileNotFoundError as e:
+#             print(f"BASIC program file not found: {basic_program_path}")
+#             raise e
 
-    def upload_file(self, server_ip, file_path, cancel_flag):
-        print(f"!upload_file:uploading {file_path} to {server_ip}:")
-        try:
-            result, execution_time = msx0babaput(server_ip, self.basic_program, file_path, cancel_flag, self.timeout)
-            print(f"Upload result: {result}")
-            print(f"Execution time: {execution_time} seconds")
-            return result, execution_time
-        except Exception as e:
-            error_message = f"Error uploading file: {str(e)}"
-            print(error_message)
-            return error_message, 0
+#     def upload_file(self, server_ip, file_path, cancel_flag):
+#         print(f"!upload_file:uploading {file_path} to {server_ip}:")
+#         try:
+#             result, execution_time = msx0babaput(server_ip, self.basic_program, file_path, cancel_flag, self.timeout)
+#             print(f"Upload result: {result}")
+#             print(f"Execution time: {execution_time} seconds")
+#             return result, execution_time
+#         except Exception as e:
+#             error_message = f"Error uploading file: {str(e)}"
+#             print(error_message)
+#             return error_message, 0

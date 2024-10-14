@@ -1,0 +1,34 @@
+2 'msx0babaput_encoder
+5000 '
+5005 CALL IOTPUT("msx/u0/pm/cpu/percent",200)
+5010 DEFINT A-Z:DIM B$,I$,X%,Y%,Z%,O%,P%,Q%,R%,OB%(4) :CLEAR 1000
+5020 F$ = "messages.txt"
+5030 B$ = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+5100 S = 3:OPEN F$ AS #1 LEN=S
+5110 L = LOF(1): IF L=0 THEN 5450 ELSE C = L \ S
+5120 FIELD #1, 3 AS I$:IF C=0 THEN 5300
+5130 FOR H=1 TO C
+5150   GET #1
+5160   X% = ASC(MID$(I$, 1, 1))
+5170   Y% = ASC(MID$(I$, 2, 1))
+5180   Z% = ASC(MID$(I$, 3, 1))
+5190   PRINT  MID$(B$, X% \ 4 + 1, 1) + MID$(B$, (X% AND 3) * 16 + Y% \ 16 + 1, 1);
+5200   PRINT  MID$(B$, (Y% AND 15) * 4 + Z% \ 64 + 1, 1) + MID$(B$, (Z% AND 63) + 1, 1);
+5210   IF H MOD 19 = 0 THEN PRINT  
+5220 NEXT
+5300 S = L MOD 3:IF S=0 THEN 5450
+5320 GET #1
+5340 X% = ASC(MID$(I$, 1, 1))
+5350 Y% = ASC(MID$(I$, 2, 1))*(1+S=1)
+5360 Z% = ASC(MID$(I$, 3, 1))*(1+(S=1 OR S=2))
+5370 OB%(1) = X% \ 4
+5380 OB%(2) = (X% AND 3) * 16 + Y% \ 16
+5390 OB%(3) = (Y% AND 15) * 4 + Z% \ 64
+5400 OB%(4) = Z% AND 63
+5420 FOR J = 1 TO 4
+5430   IF J >= 3 AND S= 1 THEN PRINT"=";ELSE IF J = 4 AND S= 2 THEN PRINT"="; ELSE PRINT MID$(B$, OB%(J) + 1, 1);
+5440 NEXT
+5450 PRINT 
+5460 CLOSE #1
+5500 CALL IOTPUT("msx/u0/pm/cpu/percent",100)
+5999 END
