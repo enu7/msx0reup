@@ -355,6 +355,42 @@ class AsyncTextBrowser(RecycleView):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             })
 
+            try:
+                head_response = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: session.head(url, verify=certifi.where(), allow_redirects=True)
+                )
+                content_type = head_response.headers.get('Content-Type', '').lower()
+            except requests.exceptions.RequestException:
+                # HEADリクエストが失敗した場合は、GETリクエストで試行
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: session.get(url, verify=certifi.where(), allow_redirects=True)
+                )
+                content_type = response.headers.get('Content-Type', '').lower()
+            
+            logger.debug(f"Content-Type: {content_type}")
+
+            # テキストベースのコンテンツタイプかどうかを判定
+            text_content_types = [
+                'text/html', 'text/plain', 'text/xml', 
+                'application/xml', 'application/json',
+                'text/markdown', 'text/css', 'text/javascript',
+                'application/javascript', 'application/x-javascript'
+            ]
+
+            is_text_content = any(t in content_type for t in text_content_types)
+
+            if not is_text_content:
+                # テキスト以外のコンテンツの場合、ダウンロード確認ダイアログを表示
+                logger.debug(f"Non-text content detected: {content_type}")
+                Clock.schedule_once(
+                    lambda dt: self.parent.parent.parent.parent.parent.confirm_download(url), 
+                    0
+                )
+                return
+
+            # テキストコンテンツの場合は通常の処理を継続
             response = await asyncio.get_event_loop().run_in_executor(
                 None, 
                 lambda: session.get(url, verify=certifi.where(), allow_redirects=True)
@@ -616,6 +652,7 @@ class MSX0RemoteUploader(BoxLayout):
 
     def on_link_click(self, url):
         logger.debug("on_link_click:")
+
         mime_type, _ = mimetypes.guess_type(url)
         logger.debug(f"on_link_click:{mime_type}")
 
@@ -630,8 +667,13 @@ class MSX0RemoteUploader(BoxLayout):
         if url:
             logger.debug(f"Loading URL: {url}")
             self.show_spinner()
-            self.url_history.append(url)
-            self.current_url_index = len(self.url_history) - 1
+            # 履歴の途中で新しいURLを読み込む場合、それ以降の履歴を削除
+            if self.current_url_index < len(self.url_history) - 1:
+                self.url_history = self.url_history[:self.current_url_index + 1]
+            # 同じURLが連続で追加されることを防ぐ
+            if not self.url_history or self.url_history[-1] != url:
+                self.url_history.append(url)
+                self.current_url_index = len(self.url_history) - 1
             asyncio.create_task(self.load_url_with_spinner(url))
             # Schedule the cursor position update
             Clock.schedule_once(lambda dt: self.reset_url_input_cursor(), 0)
