@@ -1,39 +1,48 @@
+import os, sys
+if sys.__stdout__ is None or sys.__stderr__ is None:
+    os.environ['KIVY_NO_CONSOLELOG'] = '1'
+
+
+import sys
+import traceback
+from kivy.config import ConfigParser
+from kivy.config import Config
+from kivy.core.text import LabelBase, DEFAULT_FONT
+from kivy.resources import resource_add_path
+from kivy.utils import platform
+import os
+
+
+
 import kivy
 kivy.require('2.1.0')
 import asyncio
 from kivy.app import async_runTouchApp
 from kivy.lang import Builder
 
-from kivy.utils import platform
 import logging
-from jnius import autoclass
-from kivy.config import ConfigParser
-from kivy.config import Config
-import sys
-import traceback
-from kivy.core.text import LabelBase, DEFAULT_FONT
-from kivy.resources import resource_add_path
-from kivy.utils import platform
-import os
-
-Config.set('kivy', 'default_font_size', '6')
 
 from msx0reup import MSX0RemoteUploader
 from kivy.app import App
 
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 os.environ.update({
     'KIVY_NO_CONSOLELOG': '1',
     'KIVY_LOG_LEVEL': 'debug'
 })
 
-try:
-    from android.activity import bind as activity_bind
-    logger.debug("Successfully imported android.activity.bind")
-except ImportError as e:
-    logger.error(f"Failed to import android.activity.bind: {e}")
+# Androidプラットフォーム固有の機能をプラットフォームに応じて条件分岐
+ANDROID_IMPORTS = False
+if platform == 'android':
+    try:
+        from jnius import autoclass
+        from android.activity import bind as activity_bind
+        ANDROID_IMPORTS = True
+    except ImportError:
+        pass
 
 class ReupApp(App):
     def build(self):
@@ -96,12 +105,12 @@ class ReupApp(App):
 
     def handle_intent(self, intent):
         logger.debug("handle_intent called")
-        if intent:
+        if platform == 'android' and ANDROID_IMPORTS and intent:
             action = intent.getAction()
             logger.debug(f"Initial intent action: {action}")
             self.on_new_intent(intent)
         else:
-            logger.debug("Initial intent is None")
+            logger.debug("Initial intent is None or not on Android")
 
     def __init__(self, **kwargs):
         super(ReupApp, self).__init__(**kwargs)
@@ -110,6 +119,8 @@ class ReupApp(App):
         logger.debug("ReupApp initialized")
 
     def on_new_intent(self, intent):
+        if not platform == 'android' or not ANDROID_IMPORTS:
+            return
         logger.debug("on_new_intent called")
         logger.debug(f"Intent action: {intent.getAction()}")
         logger.debug(f"Intent extras: {intent.getExtras().keySet()}")
